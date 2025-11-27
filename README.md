@@ -6,9 +6,13 @@ A modern web application for testing and visualizing ttnn operations in real-tim
 
 - 🎯 **150+ Operations**: Support for Pointwise Unary, Binary, and Ternary operations
 - 🔧 **Flexible Inputs**: Choose between tensor or scalar inputs with custom values
-- 📊 **Data Type Support**: bfloat16, float32, int32, uint32
-- 📈 **Result Visualization**: View shape, dtype, min/max/mean values, and sample outputs
+- 📊 **Data Type Support**: bfloat16, float32, int32, uint32, and more
+- 📈 **Result Visualization**: View shape, dtype, and output values
 - 🎨 **Modern UI**: Beautiful, responsive interface with real-time feedback
+- 🔐 **Secure Access**: Password-protected with SHA-256 hashing
+- ⚡ **Optional Parameters**: Support for 8 operations with configurable parameters
+- 🔄 **PyTorch Comparison**: Real-time comparison with PyTorch results
+- 🌐 **Cloudflare Ready**: Works seamlessly with Cloudflare Tunnel
 
 ## Installation
 
@@ -28,6 +32,19 @@ cd /home/aswin/ttnn-web-calculator
 ```bash
 pip install Flask==3.0.0
 ```
+
+## Security
+
+The application is password-protected for secure access:
+
+**Password**: `mcw.pass`
+
+- Uses SHA-256 password hashing
+- Session-based authentication
+- All routes protected (including API endpoints)
+- Password is NOT stored in plain text
+
+See [SECURITY.md](SECURITY.md) for detailed security information.
 
 ## Usage
 

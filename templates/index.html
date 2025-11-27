@@ -370,6 +370,9 @@
             <button class="reset-btn" onclick="resetDevice()" id="reset-btn">
                 🔄 Reset
             </button>
+            <a href="/logout" class="reset-btn" style="text-decoration: none; margin-left: 10px;">
+                🚪 Logout
+            </a>
         </div>
         
         <h1>🧮 TTNN Operation Calculator</h1>
@@ -765,12 +768,27 @@
             const container = document.getElementById('inputs-container');
             const inputRows = container.querySelectorAll('.input-row');
 
+            // Filter to only process actual input rows (not parameter rows)
             inputRows.forEach((row, index) => {
-                const inputType = document.getElementById(`type-${index}`).value;
+                // Skip rows that contain optional parameters
+                if (row.querySelector('#optional-param') || row.querySelector('#optional-param-2')) {
+                    return;
+                }
+                
+                const typeSelect = document.getElementById(`type-${index}`);
+                const valueInput = document.getElementById(`value-${index}`);
+                const dtypeSelect = document.getElementById(`dtype-${index}`);
+                
+                // Only process if these elements exist (they won't for parameter rows)
+                if (!typeSelect || !valueInput || !dtypeSelect) {
+                    return;
+                }
+                
+                const inputType = typeSelect.value;
                 const inputData = {
                     type: inputType,
-                    value: parseFloat(document.getElementById(`value-${index}`).value),
-                    dtype: document.getElementById(`dtype-${index}`).value
+                    value: parseFloat(valueInput.value),
+                    dtype: dtypeSelect.value
                 };
                 
                 // Add shape only for tensors

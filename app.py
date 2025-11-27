@@ -3,13 +3,36 @@ TTNN Operation Calculator Web Application
 A Flask-based web interface for testing ttnn operations
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import ttnn
 import torch
 import traceback
 import json
+import hashlib
+import secrets
+import os
 
 app = Flask(__name__)
+# Generate a secure secret key for sessions
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(32))
+
+# Securely hash the password (SHA256)
+# The actual password is not stored anywhere in the code
+PASSWORD_HASH = "fb4d52ec15fde028f3574bfb1a313020e1d5127851353194e84978f788ada6b3"
+
+def check_password(password):
+    """Check if provided password matches the hash"""
+    return hashlib.sha256(password.encode()).hexdigest() == PASSWORD_HASH
+
+def login_required(f):
+    """Decorator to protect routes with password"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Global device handle
 device = None
@@ -209,12 +232,32 @@ def compute_torch_equivalent(operation_name, inputs, target_dtype, optional_para
         print(f"Could not compute torch equivalent: {e}")
         return None
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page"""
+    if request.method == 'POST':
+        password = request.form.get('password')
+        if check_password(password):
+            session['authenticated'] = True
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='Invalid password')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Logout and clear session"""
+    session.clear()
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
     """Render the main page"""
     return render_template('index.html', operations=OPERATIONS)
 
 @app.route('/api/execute', methods=['POST'])
+@login_required
 def execute_operation():
     """Execute a ttnn operation and return the result"""
     try:
@@ -330,16 +373,19 @@ def execute_operation():
         })
 
 @app.route('/api/operations')
+@login_required
 def get_operations():
     """Get list of available operations"""
     return jsonify(OPERATIONS)
 
 @app.route('/api/operations/params')
+@login_required
 def get_operations_params():
     """Get operations that have optional parameters"""
     return jsonify(OPERATIONS_WITH_PARAMS)
 
 @app.route('/api/device/status')
+@login_required
 def device_status():
     """Get device status"""
     global device
@@ -349,6 +395,7 @@ def device_status():
     })
 
 @app.route('/api/git/info')
+@login_required
 def git_info():
     """Get git commit information"""
     import subprocess
@@ -379,6 +426,7 @@ def git_info():
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/machine/info')
+@login_required
 def machine_info():
     """Get machine/device information"""
     return jsonify({
@@ -388,6 +436,7 @@ def machine_info():
     })
 
 @app.route('/api/device/reset', methods=['POST'])
+@login_required
 def reset_device():
     """Reset the device using tt-smi"""
     import subprocess
