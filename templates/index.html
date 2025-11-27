@@ -415,6 +415,50 @@
             margin-top: 5px;
             display: block;
         }
+
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+            margin-top: 50px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-top: 3px solid #667eea;
+            border-radius: 12px;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        footer p {
+            margin: 8px 0;
+        }
+
+        footer .contact-text {
+            font-size: 1em;
+            color: #333;
+            font-weight: 500;
+        }
+
+        footer .contact-email {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 700;
+            transition: all 0.3s;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        footer .contact-email:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        footer .powered-by {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #dee2e6;
+        }
     </style>
 </head>
 <body>
@@ -1000,14 +1044,14 @@
         }
     </script>
 
-    <footer style="text-align: center; padding: 30px 20px; margin-top: 50px; border-top: 2px solid #e0e0e0; color: #666;">
-        <p style="margin: 5px 0; font-size: 0.9em;">
+    <footer>
+        <p class="contact-text">
             Need help? Contact us at 
-            <a href="mailto:contact@aswincloud.com" style="color: #667eea; text-decoration: none; font-weight: 600;">
+            <a href="mailto:contact@aswincloud.com" class="contact-email">
                 📧 contact@aswincloud.com
             </a>
         </p>
-        <p style="margin: 5px 0; font-size: 0.85em; color: #999;">
+        <p class="powered-by">
             Powered by TT-Metal • Built with ❤️ for AI acceleration
         </p>
     </footer>
