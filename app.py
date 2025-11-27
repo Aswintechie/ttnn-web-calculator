@@ -11,10 +11,14 @@ import json
 import hashlib
 import secrets
 import os
+from datetime import timedelta
 
 app = Flask(__name__)
 # Generate a secure secret key for sessions
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', secrets.token_hex(32))
+# Session timeout: 30 minutes of inactivity
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 # Securely hash the password (SHA256)
 # The actual password is not stored anywhere in the code
@@ -238,6 +242,7 @@ def login():
     if request.method == 'POST':
         password = request.form.get('password')
         if check_password(password):
+            session.permanent = True  # Enable session timeout
             session['authenticated'] = True
             return redirect(url_for('index'))
         else:

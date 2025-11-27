@@ -65,49 +65,105 @@
             font-weight: 600;
         }
 
-        .machine-info {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            padding: 12px 15px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 8px;
-            color: white;
+        .header-container {
             display: flex;
-            gap: 12px;
+            justify-content: space-between;
             align-items: center;
-            font-size: 0.85em;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .title-section {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .machine-info {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 12px 20px;
+            border-radius: 10px;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
 
         .machine-details {
+            color: white;
             font-weight: 600;
+            font-size: 0.9em;
             white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
 
         .reset-btn {
             background: white;
             color: #667eea;
-            padding: 6px 12px;
+            padding: 8px 14px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
             font-size: 0.85em;
             transition: all 0.3s;
             white-space: nowrap;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .reset-btn:hover {
-            background: #f0f0f0;
-            transform: scale(1.05);
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .reset-btn:active {
+            transform: translateY(0);
         }
 
         .reset-btn:disabled {
-            background: #ccc;
-            color: #666;
+            background: rgba(255, 255, 255, 0.5);
+            color: #999;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+        }
+
+        .logout-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .machine-info {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .action-buttons {
+                flex-wrap: wrap;
+            }
         }
 
         .container {
@@ -363,20 +419,26 @@
 </head>
 <body>
     <div class="container">
-        <div class="machine-info" id="machine-info">
-            <div class="machine-details">
-                <span>🖥️ <span id="machine-type">Loading...</span></span>
+        <div class="header-container">
+            <div class="title-section">
+                <h1>🧮 TTNN Operation Calculator</h1>
+                <p class="subtitle">Test and visualize ttnn operations in real-time</p>
             </div>
-            <button class="reset-btn" onclick="resetDevice()" id="reset-btn">
-                🔄 Reset
-            </button>
-            <a href="/logout" class="reset-btn" style="text-decoration: none; margin-left: 10px;">
-                🚪 Logout
-            </a>
+            
+            <div class="machine-info" id="machine-info">
+                <div class="machine-details">
+                    🖥️ <span id="machine-type">Wormhole N150</span>
+                </div>
+                <div class="action-buttons">
+                    <button class="reset-btn" onclick="resetDevice()" id="reset-btn">
+                        🔄 Reset
+                    </button>
+                    <a href="/logout" class="reset-btn logout-btn">
+                        🚪 Logout
+                    </a>
+                </div>
+            </div>
         </div>
-        
-        <h1>🧮 TTNN Operation Calculator</h1>
-        <p class="subtitle">Test and visualize ttnn operations in real-time</p>
         
         <div class="git-info" id="git-info">
             <span>Loading commit info...</span>
@@ -600,12 +662,32 @@
             }
         }
 
+        // Session timeout warning (after 25 minutes, warn about 30 min timeout)
+        let sessionWarningTimeout;
+        function resetSessionTimer() {
+            clearTimeout(sessionWarningTimeout);
+            sessionWarningTimeout = setTimeout(() => {
+                if (confirm('⏰ Your session will expire in 5 minutes due to inactivity.\n\nClick OK to stay logged in, or Cancel to logout now.')) {
+                    // User clicked OK, make a request to keep session alive
+                    fetch('/api/operations').catch(() => {});
+                } else {
+                    window.location.href = '/logout';
+                }
+            }, 25 * 60 * 1000); // 25 minutes
+        }
+
+        // Reset timer on any user activity
+        ['click', 'keypress', 'scroll', 'mousemove'].forEach(event => {
+            document.addEventListener(event, resetSessionTimer, { passive: true, once: false });
+        });
+
         // Initialize autocomplete on page load
         document.addEventListener('DOMContentLoaded', function() {
             setupAutocomplete();
             loadGitInfo();
             loadMachineInfo();
             loadOperationsParams();
+            resetSessionTimer(); // Start session timer
         });
 
         async function loadGitInfo() {
@@ -917,5 +999,17 @@
             }
         }
     </script>
+
+    <footer style="text-align: center; padding: 30px 20px; margin-top: 50px; border-top: 2px solid #e0e0e0; color: #666;">
+        <p style="margin: 5px 0; font-size: 0.9em;">
+            Need help? Contact us at 
+            <a href="mailto:contact@aswincloud.com" style="color: #667eea; text-decoration: none; font-weight: 600;">
+                📧 contact@aswincloud.com
+            </a>
+        </p>
+        <p style="margin: 5px 0; font-size: 0.85em; color: #999;">
+            Powered by TT-Metal • Built with ❤️ for AI acceleration
+        </p>
+    </footer>
 </body>
 </html>
