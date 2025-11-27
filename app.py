@@ -11,7 +11,7 @@ import json
 import hashlib
 import secrets
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 app = Flask(__name__)
 # Generate a secure secret key for sessions
@@ -24,9 +24,47 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 # The actual password is not stored anywhere in the code
 PASSWORD_HASH = "fb4d52ec15fde028f3574bfb1a313020e1d5127851353194e84978f788ada6b3"
 
+# Login attempt tracking (in-memory, resets on server restart)
+login_attempts = {}
+MAX_ATTEMPTS = 5
+LOCKOUT_DURATION = timedelta(minutes=15)
+
 def check_password(password):
     """Check if provided password matches the hash"""
     return hashlib.sha256(password.encode()).hexdigest() == PASSWORD_HASH
+
+def is_locked_out(ip_address):
+    """Check if an IP address is currently locked out"""
+    if ip_address in login_attempts:
+        attempt_data = login_attempts[ip_address]
+        if attempt_data['count'] >= MAX_ATTEMPTS:
+            lockout_time = attempt_data['lockout_until']
+            if datetime.now() < lockout_time:
+                return True, lockout_time
+            else:
+                # Lockout expired, reset attempts
+                del login_attempts[ip_address]
+    return False, None
+
+def record_failed_attempt(ip_address):
+    """Record a failed login attempt"""
+    if ip_address not in login_attempts:
+        login_attempts[ip_address] = {
+            'count': 1,
+            'first_attempt': datetime.now(),
+            'lockout_until': None
+        }
+    else:
+        login_attempts[ip_address]['count'] += 1
+    
+    # If max attempts reached, set lockout
+    if login_attempts[ip_address]['count'] >= MAX_ATTEMPTS:
+        login_attempts[ip_address]['lockout_until'] = datetime.now() + LOCKOUT_DURATION
+
+def reset_attempts(ip_address):
+    """Reset login attempts for an IP after successful login"""
+    if ip_address in login_attempts:
+        del login_attempts[ip_address]
 
 def login_required(f):
     """Decorator to protect routes with password"""
@@ -238,15 +276,45 @@ def compute_torch_equivalent(operation_name, inputs, target_dtype, optional_para
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Login page"""
+    """Login page with lockout protection"""
+    ip_address = request.remote_addr
+    
     if request.method == 'POST':
+        # Check if IP is locked out
+        locked_out, lockout_until = is_locked_out(ip_address)
+        if locked_out:
+            remaining_time = (lockout_until - datetime.now()).total_seconds() / 60
+            return render_template('login.html', 
+                error=f'Too many failed attempts. Account locked for {int(remaining_time)} more minutes.',
+                lockout=True)
+        
         password = request.form.get('password')
         if check_password(password):
             session.permanent = True  # Enable session timeout
             session['authenticated'] = True
+            reset_attempts(ip_address)  # Clear failed attempts on success
             return redirect(url_for('index'))
         else:
-            return render_template('login.html', error='Invalid password')
+            record_failed_attempt(ip_address)
+            attempts_left = MAX_ATTEMPTS - login_attempts.get(ip_address, {}).get('count', 0)
+            
+            if attempts_left > 0:
+                return render_template('login.html', 
+                    error=f'Invalid password. {attempts_left} attempts remaining.',
+                    attempts_left=attempts_left)
+            else:
+                return render_template('login.html', 
+                    error=f'Too many failed attempts. Account locked for {LOCKOUT_DURATION.seconds // 60} minutes.',
+                    lockout=True)
+    
+    # Check lockout status on GET request too
+    locked_out, lockout_until = is_locked_out(ip_address)
+    if locked_out:
+        remaining_time = (lockout_until - datetime.now()).total_seconds() / 60
+        return render_template('login.html', 
+            error=f'Account locked. Please try again in {int(remaining_time)} minutes.',
+            lockout=True)
+    
     return render_template('login.html')
 
 @app.route('/logout')

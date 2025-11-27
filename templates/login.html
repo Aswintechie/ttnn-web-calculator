@@ -135,16 +135,39 @@
             animation: shake 0.5s;
         }
 
+        .lockout-message {
+            background: #fff3cd;
+            border: 2px solid #ff6b6b;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            animation: pulse 1s ease-in-out;
+        }
+
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-10px); }
             75% { transform: translateX(10px); }
         }
 
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
         .error-message::before {
             content: "⚠️";
             margin-right: 8px;
             font-size: 18px;
+        }
+
+        .lockout-message::before {
+            content: "🔒";
+            margin-right: 8px;
+            font-size: 20px;
         }
 
         .footer-text {
@@ -186,7 +209,7 @@
         </div>
 
         {% if error %}
-        <div class="error-message">
+        <div class="{% if lockout %}lockout-message{% else %}error-message{% endif %}">
             {{ error }}
         </div>
         {% endif %}
@@ -199,16 +222,15 @@
                         type="password" 
                         id="password" 
                         name="password" 
-                        placeholder="Enter your password"
-                        required 
-                        autofocus
+                        placeholder="{% if lockout %}Account locked{% else %}Enter your password{% endif %}"
+                        {% if lockout %}disabled{% else %}required autofocus{% endif %}
                         autocomplete="off">
-                    <button type="button" class="toggle-password" onclick="togglePassword()">👁️</button>
+                    <button type="button" class="toggle-password" onclick="togglePassword()" {% if lockout %}disabled{% endif %}>👁️</button>
                 </div>
             </div>
 
-            <button type="submit" class="login-button">
-                Login
+            <button type="submit" class="login-button" {% if lockout %}disabled{% endif %}>
+                {% if lockout %}🔒 Locked{% else %}Login{% endif %}
             </button>
         </form>
 
