@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTNN Operation Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        .git-info {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .git-info .commit-hash {
+            font-family: 'Courier New', monospace;
+            background: #f0f0f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .git-info .time-ago {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .machine-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            color: white;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            font-size: 0.85em;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .machine-details {
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .reset-btn {
+            background: white;
+            color: #667eea;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85em;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .reset-btn:hover {
+            background: #f0f0f0;
+            transform: scale(1.05);
+        }
+
+        .reset-btn:disabled {
+            background: #ccc;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .container {
+            position: relative;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        select, input, button {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .autocomplete {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .autocomplete-items {
+            position: absolute;
+            border: 2px solid #667eea;
+            border-top: none;
+            z-index: 99;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .autocomplete-items div {
+            padding: 12px;
+            cursor: pointer;
+            background-color: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            transition: background-color 0.2s;
+        }
+
+        .autocomplete-items div:hover {
+            background-color: #f0f0ff;
+        }
+
+        .autocomplete-items div.autocomplete-active {
+            background-color: #667eea;
+            color: white;
+        }
+
+        .op-category {
+            font-size: 0.75em;
+            color: #667eea;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .autocomplete-active .op-category {
+            color: #fff;
+        }
+
+        .input-row {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .input-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1.5fr;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .calculate-btn {
+            margin-top: 30px;
+            padding: 15px;
+            font-size: 1.1em;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .add-input-btn {
+            background: #28a745;
+            margin-top: 10px;
+        }
+
+        .remove-btn {
+            background: #dc3545;
+            padding: 8px;
+            font-size: 0.9em;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .result-section.show {
+            display: block;
+        }
+
+        .result-section.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+        }
+
+        .result-section.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+        }
+
+        .result-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .result-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item-label {
+            font-size: 0.85em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .result-item-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .sample-values {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            color: #721c24;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .category-label {
+            font-size: 0.8em;
+            color: #667eea;
+            font-weight: 600;
+            margin-top: 5px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="machine-info" id="machine-info">
+            <div class="machine-details">
+                <span>🖥️ <span id="machine-type">Loading...</span></span>
+            </div>
+            <button class="reset-btn" onclick="resetDevice()" id="reset-btn">
+                🔄 Reset
+            </button>
+        </div>
+        
+        <h1>🧮 TTNN Operation Calculator</h1>
+        <p class="subtitle">Test and visualize ttnn operations in real-time</p>
+        
+        <div class="git-info" id="git-info">
+            <span>Loading commit info...</span>
+        </div>
+
+        <div class="form-section">
+            <div class="form-group">
+                <label for="operation">Type Operation Name</label>
+                <div class="autocomplete">
+                    <input 
+                        type="text" 
+                        id="operation" 
+                        placeholder="Type to search... (e.g., add, multiply, relu)"
+                        autocomplete="off"
+                    >
+                </div>
+                <small style="color: #666; font-size: 0.85em; margin-top: 5px; display: block;">
+                    Start typing to filter operations (e.g., "add", "sqrt", "relu")
+                </small>
+            </div>
+
+            <div id="inputs-container"></div>
+
+            <button class="calculate-btn" onclick="executeOperation()">Calculate Result</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 15px;">Executing operation on device...</p>
+        </div>
+
+        <div class="result-section" id="result">
+        </div>
+    </div>
+
+    <script>
+        const UNARY_OPS = {{ operations['Pointwise Unary'] | tojson }};
+        const BINARY_OPS = {{ operations['Pointwise Binary'] | tojson }};
+        const TERNARY_OPS = {{ operations['Pointwise Ternary'] | tojson }};
+        
+        let OPERATIONS_WITH_PARAMS = {};
+
+        // Build complete operations list with categories
+        const ALL_OPERATIONS = [];
+        {% for category, ops in operations.items() %}
+            {% for op in ops %}
+                ALL_OPERATIONS.push({ name: '{{ op }}', category: '{{ category }}' });
+            {% endfor %}
+        {% endfor %}
+
+        let currentFocus = -1;
+
+        function setupAutocomplete() {
+            const input = document.getElementById('operation');
+            let currentListDiv;
+
+            input.addEventListener('input', function() {
+                const val = this.value;
+                closeAllLists();
+                currentFocus = -1;
+
+                if (!val) {
+                    updateInputs();
+                    return;
+                }
+
+                currentListDiv = document.createElement('div');
+                currentListDiv.setAttribute('id', 'autocomplete-list');
+                currentListDiv.setAttribute('class', 'autocomplete-items');
+                this.parentNode.appendChild(currentListDiv);
+
+                // Filter operations
+                const filtered = ALL_OPERATIONS.filter(op => 
+                    op.name.toLowerCase().includes(val.toLowerCase())
+                );
+
+                // Show max 10 results
+                filtered.slice(0, 10).forEach(op => {
+                    const div = document.createElement('div');
+                    
+                    // Highlight matching text
+                    const index = op.name.toLowerCase().indexOf(val.toLowerCase());
+                    const before = op.name.substring(0, index);
+                    const match = op.name.substring(index, index + val.length);
+                    const after = op.name.substring(index + val.length);
+                    
+                    div.innerHTML = `
+                        <strong>ttnn.</strong>${before}<strong style="color: #667eea;">${match}</strong>${after}
+                        <span class="op-category">(${op.category})</span>
+                    `;
+                    div.addEventListener('click', function() {
+                        input.value = op.name;
+                        closeAllLists();
+                        updateInputs();
+                    });
+                    currentListDiv.appendChild(div);
+                });
+
+                if (filtered.length === 0) {
+                    const div = document.createElement('div');
+                    div.innerHTML = '<em style="color: #999;">No operations found</em>';
+                    div.style.cursor = 'default';
+                    currentListDiv.appendChild(div);
+                }
+            });
+
+            input.addEventListener('keydown', function(e) {
+                let list = document.getElementById('autocomplete-list');
+                if (list) list = list.getElementsByTagName('div');
+                
+                if (e.keyCode == 40) { // Down arrow
+                    e.preventDefault();
+                    currentFocus++;
+                    addActive(list);
+                } else if (e.keyCode == 38) { // Up arrow
+                    e.preventDefault();
+                    currentFocus--;
+                    addActive(list);
+                } else if (e.keyCode == 13) { // Enter
+                    e.preventDefault();
+                    if (currentFocus > -1 && list) {
+                        list[currentFocus].click();
+                    } else {
+                        // Try exact match
+                        const exactMatch = ALL_OPERATIONS.find(op => 
+                            op.name.toLowerCase() === this.value.toLowerCase()
+                        );
+                        if (exactMatch) {
+                            this.value = exactMatch.name;
+                            updateInputs();
+                        }
+                    }
+                }
+            });
+
+            function addActive(list) {
+                if (!list) return false;
+                removeActive(list);
+                if (currentFocus >= list.length) currentFocus = 0;
+                if (currentFocus < 0) currentFocus = (list.length - 1);
+                list[currentFocus].classList.add('autocomplete-active');
+            }
+
+            function removeActive(list) {
+                for (let i = 0; i < list.length; i++) {
+                    list[i].classList.remove('autocomplete-active');
+                }
+            }
+
+            function closeAllLists(element) {
+                const items = document.getElementsByClassName('autocomplete-items');
+                for (let i = 0; i < items.length; i++) {
+                    if (element != items[i] && element != input) {
+                        items[i].parentNode.removeChild(items[i]);
+                    }
+                }
+            }
+
+            document.addEventListener('click', function(e) {
+                closeAllLists(e.target);
+            });
+        }
+
+        async function loadOperationsParams() {
+            try {
+                const response = await fetch('/api/operations/params');
+                OPERATIONS_WITH_PARAMS = await response.json();
+            } catch (error) {
+                console.error('Failed to load operations params:', error);
+            }
+        }
+
+        function updateInputs() {
+            const operation = document.getElementById('operation').value;
+            const container = document.getElementById('inputs-container');
+            
+            if (!operation) {
+                container.innerHTML = '';
+                return;
+            }
+
+            let numInputs = 1;
+            if (BINARY_OPS.includes(operation)) {
+                numInputs = 2;
+            } else if (TERNARY_OPS.includes(operation)) {
+                numInputs = 3;
+            }
+
+            container.innerHTML = '';
+            for (let i = 0; i < numInputs; i++) {
+                container.innerHTML += createInputRow(i);
+            }
+            
+            // Add optional parameter field if operation needs it
+            if (OPERATIONS_WITH_PARAMS[operation]) {
+                const paramInfo = OPERATIONS_WITH_PARAMS[operation];
+                container.innerHTML += `
+                    <div class="input-row" style="background: #fff3cd; border-color: #ffc107;">
+                        <label>Optional Parameter: ${paramInfo.param_name}</label>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 0.85em;">${paramInfo.description}</label>
+                            <input type="number" id="optional-param" value="${paramInfo.default}" step="0.1" placeholder="Default: ${paramInfo.default}" style="margin-top: 5px;">
+                            <small style="display: block; margin-top: 5px; color: #856404;">Default: ${paramInfo.default}</small>
+                        </div>
+                    </div>
+                `;
+                
+                // Add second parameter if needed (e.g., threshold operation)
+                if (paramInfo.has_second_param) {
+                    container.innerHTML += `
+                        <div class="input-row" style="background: #fff3cd; border-color: #ffc107;">
+                            <label>Optional Parameter: ${paramInfo.second_param_name}</label>
+                            <div style="margin-top: 10px;">
+                                <label style="font-size: 0.85em;">${paramInfo.second_param_description}</label>
+                                <input type="number" id="optional-param-2" value="${paramInfo.second_param_default}" step="0.1" placeholder="Default: ${paramInfo.second_param_default}" style="margin-top: 5px;">
+                                <small style="display: block; margin-top: 5px; color: #856404;">Default: ${paramInfo.second_param_default}</small>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // Initialize autocomplete on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setupAutocomplete();
+            loadGitInfo();
+            loadMachineInfo();
+            loadOperationsParams();
+        });
+
+        async function loadGitInfo() {
+            try {
+                const response = await fetch('/api/git/info');
+                const data = await response.json();
+                
+                const gitInfoDiv = document.getElementById('git-info');
+                
+                if (data.success) {
+                    gitInfoDiv.innerHTML = `
+                        <strong>TT-Metal Commit:</strong> 
+                        <span class="commit-hash">${data.short_hash}</span>
+                        <span style="color: #999;">•</span>
+                        <span class="time-ago">${data.time_ago}</span>
+                        <span style="color: #999;">•</span>
+                        <span style="color: #666;">${data.message}</span>
+                    `;
+                } else {
+                    gitInfoDiv.innerHTML = '<span style="color: #999;">Git info unavailable</span>';
+                }
+            } catch (error) {
+                console.error('Failed to load git info:', error);
+                document.getElementById('git-info').innerHTML = '<span style="color: #999;">Git info unavailable</span>';
+            }
+        }
+
+        async function loadMachineInfo() {
+            try {
+                const response = await fetch('/api/machine/info');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('machine-type').textContent = data.machine_type;
+                    document.getElementById('device-id').textContent = data.device_id;
+                }
+            } catch (error) {
+                console.error('Failed to load machine info:', error);
+            }
+        }
+
+        async function resetDevice() {
+            const resetBtn = document.getElementById('reset-btn');
+            
+            if (!confirm('Are you sure you want to reset the device? This will interrupt any running operations.')) {
+                return;
+            }
+            
+            resetBtn.disabled = true;
+            resetBtn.textContent = '⏳ Resetting...';
+            
+            try {
+                const response = await fetch('/api/device/reset', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✅ Device reset successfully!\n\nThe device has been reset and is ready for new operations.');
+                    resetBtn.textContent = '✅ Reset Complete';
+                    setTimeout(() => {
+                        resetBtn.textContent = '🔄 Reset Device';
+                        resetBtn.disabled = false;
+                    }, 3000);
+                } else {
+                    alert('❌ Reset failed:\n' + data.error);
+                    resetBtn.textContent = '🔄 Reset Device';
+                    resetBtn.disabled = false;
+                }
+            } catch (error) {
+                alert('❌ Error resetting device:\n' + error.message);
+                resetBtn.textContent = '🔄 Reset Device';
+                resetBtn.disabled = false;
+            }
+        }
+
+        function createInputRow(index) {
+            return `
+                <div class="input-row" id="input-${index}">
+                    <label>Input ${index + 1}</label>
+                    <div class="input-controls">
+                        <div>
+                            <label style="font-size: 0.85em;">Type</label>
+                            <select id="type-${index}" onchange="updateDtypeAndShapeOptions(${index})">
+                                <option value="tensor">Tensor</option>
+                                <option value="scalar">Scalar</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85em;">Value</label>
+                            <input type="number" id="value-${index}" step="0.1" placeholder="Enter value">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85em;">Data Type</label>
+                            <select id="dtype-${index}">
+                                <option value="bfloat16">bfloat16</option>
+                                <option value="float32">float32</option>
+                                <option value="bfloat8_b">bfloat8_b</option>
+                                <option value="bfloat4_b">bfloat4_b</option>
+                                <option value="uint8">uint8</option>
+                                <option value="uint16">uint16</option>
+                                <option value="int32">int32</option>
+                                <option value="uint32">uint32</option>
+                            </select>
+                        </div>
+                        <div id="shape-div-${index}">
+                            <label style="font-size: 0.85em;">Shape</label>
+                            <input type="text" id="shape-${index}" value="1,1,32,32" placeholder="e.g., 1,1,32,32" style="font-family: 'Courier New', monospace;">
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateDtypeAndShapeOptions(index) {
+            const typeSelect = document.getElementById(`type-${index}`);
+            const dtypeSelect = document.getElementById(`dtype-${index}`);
+            const shapeDiv = document.getElementById(`shape-div-${index}`);
+            
+            if (!typeSelect || !dtypeSelect) return;
+            
+            const isScalar = typeSelect.value === 'scalar';
+            
+            // Update dtype options
+            if (isScalar) {
+                // Scalar: show simple types (float, int)
+                dtypeSelect.innerHTML = `
+                    <option value="float32">float</option>
+                    <option value="int32">int</option>
+                `;
+            } else {
+                // Tensor: show all ttnn types
+                dtypeSelect.innerHTML = `
+                    <option value="bfloat16">bfloat16</option>
+                    <option value="float32">float32</option>
+                    <option value="bfloat8_b">bfloat8_b</option>
+                    <option value="bfloat4_b">bfloat4_b</option>
+                    <option value="uint8">uint8</option>
+                    <option value="uint16">uint16</option>
+                    <option value="int32">int32</option>
+                    <option value="uint32">uint32</option>
+                `;
+            }
+            
+            // Hide/show shape input based on type
+            if (shapeDiv) {
+                shapeDiv.style.display = isScalar ? 'none' : 'block';
+            }
+        }
+
+        async function executeOperation() {
+            const operation = document.getElementById('operation').value;
+            if (!operation) {
+                alert('Please select an operation');
+                return;
+            }
+
+            const inputs = [];
+            const container = document.getElementById('inputs-container');
+            const inputRows = container.querySelectorAll('.input-row');
+
+            inputRows.forEach((row, index) => {
+                const inputType = document.getElementById(`type-${index}`).value;
+                const inputData = {
+                    type: inputType,
+                    value: parseFloat(document.getElementById(`value-${index}`).value),
+                    dtype: document.getElementById(`dtype-${index}`).value
+                };
+                
+                // Add shape only for tensors
+                if (inputType === 'tensor') {
+                    const shapeInput = document.getElementById(`shape-${index}`);
+                    if (shapeInput) {
+                        inputData.shape = shapeInput.value;
+                    }
+                }
+                
+                inputs.push(inputData);
+            });
+
+            // Get optional parameters if present
+            const optionalParamInput = document.getElementById('optional-param');
+            const optionalParam2Input = document.getElementById('optional-param-2');
+            const requestBody = {
+                operation: operation,
+                inputs: inputs
+            };
+            
+            if (optionalParamInput) {
+                requestBody.optional_param = parseFloat(optionalParamInput.value);
+            }
+            
+            if (optionalParam2Input) {
+                requestBody.optional_param_2 = parseFloat(optionalParam2Input.value);
+            }
+
+            // Show loading
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('result').classList.remove('show');
+
+            try {
+                const response = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                displayResult(data, operation);
+            } catch (error) {
+                displayResult({
+                    success: false,
+                    error: error.message
+                }, operation);
+            } finally {
+                document.getElementById('loading').classList.remove('show');
+            }
+        }
+
+        function displayResult(data, operation) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.classList.add('show');
+
+            if (data.success) {
+                resultDiv.classList.remove('error');
+                resultDiv.classList.add('success');
+                
+                let html = `
+                    <div class="result-title">✅ Operation: ttnn.${operation}</div>
+                `;
+
+                if (data.shape) {
+                    // Format numbers: show integer if whole number, otherwise show decimals
+                    const formatValue = (val) => {
+                        if (val === 0) return '0';
+                        if (Number.isInteger(val)) return val.toString();
+                        return val.toFixed(6).replace(/\.?0+$/, '');  // Remove trailing zeros
+                    };
+                    
+                    // Format dtype: extract just the type name
+                    const formatDtype = (dtype) => {
+                        if (!dtype) return 'N/A';
+                        // Extract from patterns like "torch.bfloat16" or "DataType.BFLOAT16"
+                        const match = dtype.match(/\.([a-z0-9_]+)$/i);
+                        return match ? match[1] : dtype;
+                    };
+                    
+                    html += `
+                        <div class="result-grid">
+                            <div class="result-item">
+                                <div class="result-item-label">TTNN Result</div>
+                                <div class="result-item-value">${formatValue(data.value)}</div>
+                                <div style="font-size: 0.75em; color: #999; margin-top: 4px;">
+                                    shape: [${data.shape.join(', ')}]<br>
+                                    dtype: ${formatDtype(data.ttnn_dtype)}
+                                </div>
+                            </div>
+                            ${data.torch_value !== null ? `
+                            <div class="result-item" style="border-left-color: #28a745;">
+                                <div class="result-item-label">PyTorch Result</div>
+                                <div class="result-item-value">${formatValue(data.torch_value)}</div>
+                                <div style="font-size: 0.75em; color: #999; margin-top: 4px;">
+                                    shape: [${data.torch_shape ? data.torch_shape.join(', ') : data.shape.join(', ')}]<br>
+                                    dtype: ${formatDtype(data.torch_dtype)}
+                                </div>
+                            </div>
+                            <div class="result-item" style="border-left-color: ${Math.abs(data.value - data.torch_value) < 0.001 ? '#28a745' : '#dc3545'};">
+                                <div class="result-item-label">Match</div>
+                                <div class="result-item-value">${Math.abs(data.value - data.torch_value) < 0.001 ? '✅ Yes' : '⚠️ Differs'}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                } else if (data.result) {
+                    html += `
+                        <div class="result-item">
+                            <div class="result-item-label">Result</div>
+                            <div class="result-item-value">${data.result}</div>
+                        </div>
+                    `;
+                }
+
+                resultDiv.innerHTML = html;
+            } else {
+                resultDiv.classList.remove('success');
+                resultDiv.classList.add('error');
+                resultDiv.innerHTML = `
+                    <div class="result-title">❌ Error Executing Operation</div>
+                    <div class="error-message">${data.error}</div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
