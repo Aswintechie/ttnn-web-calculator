@@ -12,7 +12,16 @@ import hashlib
 import secrets
 import os
 import threading
+import subprocess
 from datetime import timedelta, datetime
+
+# Try to import resend, but make it optional
+try:
+    import resend
+    RESEND_AVAILABLE = True
+except ImportError:
+    RESEND_AVAILABLE = False
+    print("⚠️  Resend not installed. Bug report feature will be disabled.")
 
 app = Flask(__name__)
 # Generate a secure secret key for sessions
@@ -24,6 +33,11 @@ app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 # Securely hash the password (SHA256)
 # The actual password is not stored anywhere in the code
 PASSWORD_HASH = "fb4d52ec15fde028f3574bfb1a313020e1d5127851353194e84978f788ada6b3"
+
+# Resend API configuration
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+CONTACT_EMAIL = "contact@aswincloud.com"
+BUG_REPORT_EMAIL = "contact@aswincloud.com"
 
 # Login attempt tracking (in-memory, resets on server restart)
 login_attempts = {}
@@ -665,6 +679,153 @@ def reset_device():
         return jsonify({
             'success': False,
             'error': str(e)
+        })
+
+@app.route('/api/bug-report', methods=['POST'])
+@login_required
+def submit_bug_report():
+    """Submit a bug report with current state via Resend API"""
+    try:
+        if not RESEND_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Bug report feature is not configured. Resend library not installed.'
+            })
+        
+        if not RESEND_API_KEY:
+            return jsonify({
+                'success': False,
+                'error': 'Bug report feature is not configured. RESEND_API_KEY environment variable not set.'
+            })
+        
+        data = request.json
+        report_data = data.get('report_data', {})
+        user_description = data.get('description', 'No description provided')
+        
+        # Get git commit info
+        try:
+            git_result = subprocess.run(
+                ['git', 'log', '-1', '--format=%H|%h|%cr|%s'],
+                cwd='/home/aswin/tt-metal',
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if git_result.returncode == 0:
+                parts = git_result.stdout.strip().split('|')
+                git_info = {
+                    'commit': parts[1] if len(parts) > 1 else 'unknown',
+                    'time': parts[2] if len(parts) > 2 else 'unknown',
+                    'message': parts[3] if len(parts) > 3 else 'unknown'
+                }
+            else:
+                git_info = {'commit': 'unknown', 'time': 'unknown', 'message': 'unknown'}
+        except:
+            git_info = {'commit': 'unknown', 'time': 'unknown', 'message': 'unknown'}
+        
+        # Get queue stats
+        queue_stats = get_queue_stats()
+        
+        # Build email content
+        email_html = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; }}
+                .section {{ margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; }}
+                .label {{ font-weight: bold; color: #667eea; }}
+                .code {{ background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace; }}
+                .input-item {{ margin: 10px 0; padding: 10px; background: white; border-left: 4px solid #667eea; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>🐛 Bug Report - TTNN Calculator</h2>
+                <p>Received: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+            </div>
+            
+            <div class="section">
+                <h3>📝 User Description</h3>
+                <p>{user_description}</p>
+            </div>
+            
+            <div class="section">
+                <h3>⚙️ Operation Details</h3>
+                <p><span class="label">Operation:</span> {report_data.get('operation', 'N/A')}</p>
+                <p><span class="label">Number of Inputs:</span> {len(report_data.get('inputs', []))}</p>
+                
+                <h4>Inputs:</h4>
+                {''.join([f'''
+                <div class="input-item">
+                    <p><span class="label">Input {i+1}:</span></p>
+                    <p>Type: {inp.get('type', 'N/A')}</p>
+                    <p>Value: {inp.get('value', 'N/A')}</p>
+                    <p>Dtype: {inp.get('dtype', 'N/A')}</p>
+                    {f"<p>Shape: {inp.get('shape', 'N/A')}</p>" if inp.get('type') == 'tensor' else ''}
+                </div>
+                ''' for i, inp in enumerate(report_data.get('inputs', []))])}
+                
+                {f"<p><span class='label'>Optional Param:</span> {report_data.get('optional_param', 'N/A')}</p>" if report_data.get('optional_param') else ''}
+                {f"<p><span class='label'>Optional Param 2:</span> {report_data.get('optional_param_2', 'N/A')}</p>" if report_data.get('optional_param_2') else ''}
+            </div>
+            
+            <div class="section">
+                <h3>📊 Result Data</h3>
+                {f"<p><span class='label'>Success:</span> {report_data.get('result', {}).get('success', 'N/A')}</p>" if report_data.get('result') else '<p>No result captured</p>'}
+                {f"<p><span class='label'>TTNN Value:</span> {report_data.get('result', {}).get('value', 'N/A')}</p>" if report_data.get('result', {}).get('success') else ''}
+                {f"<p><span class='label'>PyTorch Value:</span> {report_data.get('result', {}).get('torch_value', 'N/A')}</p>" if report_data.get('result', {}).get('success') else ''}
+                {f"<p><span class='label'>Shape:</span> {report_data.get('result', {}).get('shape', 'N/A')}</p>" if report_data.get('result', {}).get('success') else ''}
+                {f"<p><span class='label'>Error:</span> <code>{report_data.get('result', {}).get('error', 'N/A')}</code></p>" if report_data.get('result', {}).get('error') else ''}
+            </div>
+            
+            <div class="section">
+                <h3>🖥️ System Information</h3>
+                <p><span class="label">Machine:</span> Wormhole N150</p>
+                <p><span class="label">Git Commit:</span> {git_info['commit']}</p>
+                <p><span class="label">Commit Time:</span> {git_info['time']}</p>
+                <p><span class="label">Commit Message:</span> {git_info['message']}</p>
+                <p><span class="label">Queue Stats:</span></p>
+                <ul>
+                    <li>Total Requests: {queue_stats['total_requests']}</li>
+                    <li>Currently Waiting: {queue_stats['currently_waiting']}</li>
+                    <li>Max Wait Time: {queue_stats['max_wait_time_seconds']}s</li>
+                </ul>
+            </div>
+            
+            <div class="section">
+                <h3>🔍 Browser Info</h3>
+                <p><span class="label">User Agent:</span> {request.headers.get('User-Agent', 'Unknown')}</p>
+                <p><span class="label">IP Address:</span> {request.remote_addr}</p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Send email via Resend
+        resend.api_key = RESEND_API_KEY
+        
+        params = {
+            "from": f"TTNN Bug Report <{CONTACT_EMAIL}>",
+            "to": [BUG_REPORT_EMAIL],
+            "subject": f"🐛 Bug Report: {report_data.get('operation', 'Unknown Operation')}",
+            "html": email_html
+        }
+        
+        email_result = resend.Emails.send(params)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Bug report submitted successfully! We will review it shortly.',
+            'email_id': email_result.get('id', 'unknown')
+        })
+        
+    except Exception as e:
+        error_trace = traceback.format_exc()
+        print(f"❌ Error sending bug report: {error_trace}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to send bug report: {str(e)}'
         })
 
 if __name__ == '__main__':
