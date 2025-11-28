@@ -293,6 +293,25 @@
             padding: 15px;
             font-size: 1.1em;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .calculate-btn.computing {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translateY(-2px) scale(1); }
+            50% { transform: translateY(-2px) scale(1.02); }
+        }
+
+        .calculate-btn .status-text {
+            display: block;
+            font-size: 0.9em;
+            margin-top: 5px;
+            opacity: 0.9;
         }
 
         .add-input-btn {
@@ -506,7 +525,10 @@
 
             <div id="inputs-container"></div>
 
-            <button class="calculate-btn" onclick="executeOperation()">Calculate Result</button>
+            <button class="calculate-btn" id="calculate-btn" onclick="executeOperation()">
+                <span id="btn-main-text">Calculate Result</span>
+                <span class="status-text" id="btn-status-text"></span>
+            </button>
         </div>
 
         <div class="loading" id="loading">
@@ -883,6 +905,25 @@
             }
         }
 
+        function updateButtonStatus(status) {
+            const btn = document.getElementById('calculate-btn');
+            const statusText = document.getElementById('btn-status-text');
+            const mainText = document.getElementById('btn-main-text');
+            
+            if (status) {
+                btn.classList.add('computing');
+                btn.disabled = true;
+                statusText.textContent = status;
+                statusText.style.display = 'block';
+            } else {
+                btn.classList.remove('computing');
+                btn.disabled = false;
+                mainText.textContent = 'Calculate Result';
+                statusText.textContent = '';
+                statusText.style.display = 'none';
+            }
+        }
+
         async function executeOperation() {
             const operation = document.getElementById('operation').value;
             if (!operation) {
@@ -947,8 +988,30 @@
             // Show loading
             document.getElementById('loading').classList.add('show');
             document.getElementById('result').classList.remove('show');
+            
+            // Update button with initial status
+            updateButtonStatus('⏳ Starting...');
 
             try {
+                // Simulate status updates (since we can't do real-time streaming easily)
+                // We'll show estimated status based on typical timing
+                const statusSequence = [
+                    { delay: 0, status: '⏳ In queue...' },
+                    { delay: 100, status: '🔓 Lock acquired' },
+                    { delay: 150, status: '🔌 Opening device...' },
+                    { delay: 200, status: '✅ Device opened' },
+                    { delay: 250, status: '🔨 Creating tensors...' },
+                    { delay: 300, status: '⚡ Computing TTNN...' },
+                    { delay: 400, status: '🔄 Converting results...' },
+                    { delay: 450, status: '🔬 Computing PyTorch...' },
+                    { delay: 500, status: '📊 Comparing results...' }
+                ];
+                
+                // Start status updates
+                statusSequence.forEach(({delay, status}) => {
+                    setTimeout(() => updateButtonStatus(status), delay);
+                });
+
                 const response = await fetch('/api/execute', {
                     method: 'POST',
                     headers: {
@@ -958,8 +1021,21 @@
                 });
 
                 const data = await response.json();
+                
+                // Show actual status from server if available
+                if (data.status_log && data.status_log.length > 0) {
+                    const lastStatus = data.status_log[data.status_log.length - 1];
+                    updateButtonStatus(lastStatus);
+                    setTimeout(() => updateButtonStatus(null), 1000);
+                } else {
+                    updateButtonStatus('✅ Complete!');
+                    setTimeout(() => updateButtonStatus(null), 1000);
+                }
+                
                 displayResult(data, operation);
             } catch (error) {
+                updateButtonStatus('❌ Error');
+                setTimeout(() => updateButtonStatus(null), 2000);
                 displayResult({
                     success: false,
                     error: error.message

@@ -339,6 +339,11 @@ def index():
     """Render the main page"""
     return render_template('index.html', operations=OPERATIONS)
 
+def send_status_update(status_message):
+    """Helper to send status updates (for future SSE implementation)"""
+    print(f"📊 Status: {status_message}")
+    # Future: Could stream to client via SSE
+
 @app.route('/api/execute', methods=['POST'])
 @login_required
 def execute_operation():
@@ -346,6 +351,7 @@ def execute_operation():
     device = None
     lock_acquired = False
     wait_start = None
+    status_log = []
     
     try:
         data = request.json
@@ -357,8 +363,12 @@ def execute_operation():
         device_queue_stats['currently_waiting'] += 1
         wait_start = datetime.now()
         
+        queue_position = device_queue_stats['currently_waiting']
+        status_log.append(f"⏳ In queue (position: {queue_position})")
+        send_status_update(f"In queue (position: {queue_position})")
+        
         # Acquire lock - only one request can use device at a time
-        print(f"🔒 Request waiting for device lock... (queue: {device_queue_stats['currently_waiting']})")
+        print(f"🔒 Request waiting for device lock... (queue: {queue_position})")
         device_lock.acquire()
         lock_acquired = True
         
@@ -369,11 +379,17 @@ def execute_operation():
             device_queue_stats['max_wait_time'] = wait_time
         
         print(f"✅ Lock acquired! Waited {wait_time:.3f}s")
+        status_log.append(f"🔓 Lock acquired (waited {wait_time:.3f}s)")
         
         # Open device for this computation
+        status_log.append("🔌 Opening device...")
+        send_status_update("Opening device...")
         device = open_device_for_computation()
+        status_log.append("✅ Device opened")
         
         # Prepare input tensors
+        status_log.append(f"🔨 Creating {len(inputs)} tensor(s)...")
+        send_status_update(f"Creating {len(inputs)} tensor(s)...")
         ttnn_inputs = []
         for inp in inputs:
             input_type = inp.get('type')  # 'tensor' or 'scalar'
@@ -407,6 +423,7 @@ def execute_operation():
                     layout=ttnn.TILE_LAYOUT
                 )
                 ttnn_inputs.append(ttnn_tensor)
+        status_log.append("✅ Tensors created")
         
         # Get the operation function
         if not hasattr(ttnn, operation_name):
@@ -422,6 +439,8 @@ def execute_operation():
         optional_param_2 = data.get('optional_param_2')
         
         # Execute the operation
+        status_log.append(f"⚡ Computing ttnn.{operation_name}...")
+        send_status_update(f"Computing ttnn.{operation_name}...")
         if optional_param is not None and operation_name in OPERATIONS_WITH_PARAMS:
             param_info = OPERATIONS_WITH_PARAMS[operation_name]
             param_name = param_info['param_name']
@@ -437,15 +456,23 @@ def execute_operation():
                 result = operation_func(*ttnn_inputs, **{param_name: float(optional_param)})
         else:
             result = operation_func(*ttnn_inputs)
+        status_log.append("✅ TTNN computation complete")
         
         # Convert result back to torch tensor
+        status_log.append("🔄 Converting to PyTorch...")
+        send_status_update("Converting to PyTorch...")
         if isinstance(result, ttnn.Tensor):
             result_torch = ttnn.to_torch(result)
+            status_log.append("✅ Converted to PyTorch")
             
             # Also compute using pure PyTorch for comparison
+            status_log.append("🔬 Computing PyTorch equivalent...")
+            send_status_update("Computing PyTorch equivalent...")
             torch_result = compute_torch_equivalent(operation_name, inputs, result_torch.dtype, optional_param, optional_param_2)
+            status_log.append("✅ PyTorch computation complete")
             
             # Get statistics about the result
+            status_log.append("📊 Preparing results...")
             result_data = {
                 'success': True,
                 'shape': list(result_torch.shape),
@@ -456,16 +483,21 @@ def execute_operation():
                 'torch_value': float(torch_result.flatten()[0].item()) if torch_result is not None else None,
                 'torch_dtype': str(torch_result.dtype) if torch_result is not None else None,
                 'torch_shape': list(torch_result.shape) if torch_result is not None else None,
-                'full_output': None  # Could add full tensor if needed
+                'full_output': None,  # Could add full tensor if needed
+                'status_log': status_log  # Include status log in response
             }
+            status_log.append("✅ Complete!")
         else:
             # For non-tensor results
+            status_log.append("✅ Complete!")
             result_data = {
                 'success': True,
                 'result': str(result),
-                'type': str(type(result))
+                'type': str(type(result)),
+                'status_log': status_log
             }
         
+        send_status_update("Complete!")
         return jsonify(result_data)
         
     except Exception as e:
@@ -478,7 +510,10 @@ def execute_operation():
         })
     finally:
         # Always close device after computation, even if there was an error
+        status_log.append("🔌 Closing device...")
+        send_status_update("Closing device...")
         close_device_after_computation(device)
+        status_log.append("✅ Device closed")
         
         # Release lock to allow next request to proceed
         if lock_acquired:
