@@ -12,7 +12,7 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             background-attachment: fixed;
             min-height: 100vh;
@@ -657,6 +657,57 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
+
+        /* Emoji rendering fix */
+        .emoji {
+            font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+            font-style: normal;
+        }
+
+        /* Match indicator styling */
+        .match-yes {
+            color: #10b981;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .match-yes::before {
+            content: '✓';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .match-differs {
+            color: #f59e0b;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .match-differs::before {
+            content: '⚠';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: #f59e0b;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -992,8 +1043,8 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    alert('✅ Device reset successfully!\n\nThe device has been reset and is ready for new operations.');
-                    resetBtn.textContent = '✅ Reset Complete';
+                    alert('Device reset successfully!\n\nThe device has been reset and is ready for new operations.');
+                    resetBtn.innerHTML = '<span class="emoji">✅</span> Reset Complete';
                     setTimeout(() => {
                         resetBtn.textContent = '🔄 Reset Device';
                         resetBtn.disabled = false;
@@ -1178,7 +1229,7 @@
                     { delay: 0, status: '⏳ In queue...' },
                     { delay: 100, status: '🔓 Lock acquired' },
                     { delay: 150, status: '🔌 Opening device...' },
-                    { delay: 200, status: '✅ Device opened' },
+                    { delay: 200, status: '✓ Device opened' },
                     { delay: 250, status: '🔨 Creating tensors...' },
                     { delay: 300, status: '⚡ Computing TTNN...' },
                     { delay: 400, status: '🔄 Converting results...' },
@@ -1207,7 +1258,7 @@
                     updateButtonStatus(lastStatus);
                     setTimeout(() => updateButtonStatus(null), 1000);
                 } else {
-                    updateButtonStatus('✅ Complete!');
+                    updateButtonStatus('✓ Complete!');
                     setTimeout(() => updateButtonStatus(null), 1000);
                 }
                 
@@ -1233,7 +1284,7 @@
                 resultDiv.classList.add('success');
                 
                 let html = `
-                    <div class="result-title">✅ Operation: ttnn.${operation}</div>
+                    <div class="result-title"><span class="emoji">✅</span> Operation: ttnn.${operation}</div>
                 `;
 
                 if (data.shape) {
@@ -1271,9 +1322,9 @@
                                     dtype: ${formatDtype(data.torch_dtype)}
                                 </div>
                             </div>
-                            <div class="result-item" style="border-left-color: ${Math.abs(data.value - data.torch_value) < 0.001 ? '#28a745' : '#dc3545'};">
+                            <div class="result-item" style="border-left-color: ${Math.abs(data.value - data.torch_value) < 0.001 ? '#10b981' : '#f59e0b'};">
                                 <div class="result-item-label">Match</div>
-                                <div class="result-item-value">${Math.abs(data.value - data.torch_value) < 0.001 ? '✅ Yes' : '⚠️ Differs'}</div>
+                                <div class="result-item-value ${Math.abs(data.value - data.torch_value) < 0.001 ? 'match-yes' : 'match-differs'}">${Math.abs(data.value - data.torch_value) < 0.001 ? 'Yes' : 'Differs'}</div>
                             </div>
                             ` : ''}
                         </div>
