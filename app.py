@@ -11,6 +11,7 @@ import json
 import hashlib
 import secrets
 import os
+import threading
 from datetime import timedelta, datetime
 
 app = Flask(__name__)
@@ -28,6 +29,14 @@ PASSWORD_HASH = "fb4d52ec15fde028f3574bfb1a313020e1d5127851353194e84978f788ada6b
 login_attempts = {}
 MAX_ATTEMPTS = 5
 LOCKOUT_DURATION = timedelta(minutes=15)
+
+# Device access lock - ensures only one request uses device at a time
+device_lock = threading.Lock()
+device_queue_stats = {
+    'total_requests': 0,
+    'currently_waiting': 0,
+    'max_wait_time': 0.0
+}
 
 def check_password(password):
     """Check if provided password matches the hash"""
@@ -77,7 +86,7 @@ def login_required(f):
     return decorated_function
 
 def open_device_for_computation():
-    """Open device for a single computation"""
+    """Open device for a single computation (lock must be acquired first)"""
     try:
         device = ttnn.open_device(device_id=0)
         print(f"✅ Device opened for computation: {device}")
@@ -87,13 +96,21 @@ def open_device_for_computation():
         raise
 
 def close_device_after_computation(device):
-    """Close device after computation is complete"""
+    """Close device after computation is complete (lock will be released by caller)"""
     if device is not None:
         try:
             ttnn.close_device(device)
             print("✅ Device closed after computation")
         except Exception as e:
             print(f"❌ Failed to close device: {e}")
+
+def get_queue_stats():
+    """Get current queue statistics"""
+    return {
+        'total_requests': device_queue_stats['total_requests'],
+        'currently_waiting': device_queue_stats['currently_waiting'],
+        'max_wait_time_seconds': round(device_queue_stats['max_wait_time'], 3)
+    }
 
 # Operations that have optional scalar parameters
 OPERATIONS_WITH_PARAMS = {
@@ -325,12 +342,33 @@ def index():
 @app.route('/api/execute', methods=['POST'])
 @login_required
 def execute_operation():
-    """Execute a ttnn operation and return the result"""
+    """Execute a ttnn operation and return the result (serialized access)"""
     device = None
+    lock_acquired = False
+    wait_start = None
+    
     try:
         data = request.json
         operation_name = data.get('operation')
         inputs = data.get('inputs', [])
+        
+        # Track queue statistics
+        device_queue_stats['total_requests'] += 1
+        device_queue_stats['currently_waiting'] += 1
+        wait_start = datetime.now()
+        
+        # Acquire lock - only one request can use device at a time
+        print(f"🔒 Request waiting for device lock... (queue: {device_queue_stats['currently_waiting']})")
+        device_lock.acquire()
+        lock_acquired = True
+        
+        # Calculate wait time
+        wait_time = (datetime.now() - wait_start).total_seconds()
+        device_queue_stats['currently_waiting'] -= 1
+        if wait_time > device_queue_stats['max_wait_time']:
+            device_queue_stats['max_wait_time'] = wait_time
+        
+        print(f"✅ Lock acquired! Waited {wait_time:.3f}s")
         
         # Open device for this computation
         device = open_device_for_computation()
@@ -441,6 +479,15 @@ def execute_operation():
     finally:
         # Always close device after computation, even if there was an error
         close_device_after_computation(device)
+        
+        # Release lock to allow next request to proceed
+        if lock_acquired:
+            device_lock.release()
+            print("🔓 Lock released - next request can proceed")
+        
+        # Clean up wait counter if we failed before acquiring lock
+        if wait_start and not lock_acquired:
+            device_queue_stats['currently_waiting'] -= 1
 
 @app.route('/api/operations')
 @login_required
@@ -454,23 +501,47 @@ def get_operations_params():
     """Get operations that have optional parameters"""
     return jsonify(OPERATIONS_WITH_PARAMS)
 
+@app.route('/api/device/queue')
+@login_required
+def device_queue_status():
+    """Get device queue statistics"""
+    return jsonify(get_queue_stats())
+
 @app.route('/api/device/status')
 @login_required
 def device_status():
     """Get device status - devices are opened per computation"""
     try:
-        # Try to open device to check if it's available
-        test_device = ttnn.open_device(device_id=0)
-        ttnn.close_device(test_device)
-        return jsonify({
-            'available': True,
-            'mode': 'on-demand',
-            'message': 'Device opens for each computation and closes after'
-        })
+        # Try to open device to check if it's available (without blocking other requests)
+        # We briefly acquire the lock to test device availability
+        acquired = device_lock.acquire(blocking=False)
+        if acquired:
+            try:
+                test_device = ttnn.open_device(device_id=0)
+                ttnn.close_device(test_device)
+                device_lock.release()
+                return jsonify({
+                    'available': True,
+                    'mode': 'serialized',
+                    'message': 'Device opens per computation, one request at a time',
+                    'queue_stats': get_queue_stats()
+                })
+            except Exception as e:
+                device_lock.release()
+                raise
+        else:
+            # Lock is held, device is currently in use
+            return jsonify({
+                'available': True,
+                'mode': 'serialized',
+                'message': 'Device currently in use by another request',
+                'in_use': True,
+                'queue_stats': get_queue_stats()
+            })
     except Exception as e:
         return jsonify({
             'available': False,
-            'mode': 'on-demand',
+            'mode': 'serialized',
             'error': str(e)
         })
 
