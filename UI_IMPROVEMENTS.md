@@ -265,3 +265,5 @@ Potential improvements:
 - [ ] Activity indicator
 - [ ] Session history log
 
+
+

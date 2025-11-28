@@ -76,29 +76,22 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Global device handle
-device = None
+def open_device_for_computation():
+    """Open device for a single computation"""
+    try:
+        device = ttnn.open_device(device_id=0)
+        print(f"✅ Device opened for computation: {device}")
+        return device
+    except Exception as e:
+        print(f"❌ Failed to open device: {e}")
+        raise
 
-def initialize_device():
-    """Initialize ttnn device if not already initialized"""
-    global device
-    if device is None:
-        try:
-            device = ttnn.open_device(device_id=0)
-            print(f"✅ Device initialized: {device}")
-        except Exception as e:
-            print(f"❌ Failed to initialize device: {e}")
-            raise
-    return device
-
-def cleanup_device():
-    """Cleanup device resources"""
-    global device
+def close_device_after_computation(device):
+    """Close device after computation is complete"""
     if device is not None:
         try:
             ttnn.close_device(device)
-            device = None
-            print("✅ Device closed")
+            print("✅ Device closed after computation")
         except Exception as e:
             print(f"❌ Failed to close device: {e}")
 
@@ -333,13 +326,14 @@ def index():
 @login_required
 def execute_operation():
     """Execute a ttnn operation and return the result"""
+    device = None
     try:
         data = request.json
         operation_name = data.get('operation')
         inputs = data.get('inputs', [])
         
-        # Initialize device
-        dev = initialize_device()
+        # Open device for this computation
+        device = open_device_for_computation()
         
         # Prepare input tensors
         ttnn_inputs = []
@@ -371,7 +365,7 @@ def execute_operation():
                 ttnn_tensor = ttnn.from_torch(
                     torch_tensor, 
                     dtype=dtype,
-                    device=dev,
+                    device=device,
                     layout=ttnn.TILE_LAYOUT
                 )
                 ttnn_inputs.append(ttnn_tensor)
@@ -444,6 +438,9 @@ def execute_operation():
             'error': str(e),
             'traceback': error_trace
         })
+    finally:
+        # Always close device after computation, even if there was an error
+        close_device_after_computation(device)
 
 @app.route('/api/operations')
 @login_required
@@ -460,12 +457,22 @@ def get_operations_params():
 @app.route('/api/device/status')
 @login_required
 def device_status():
-    """Get device status"""
-    global device
-    return jsonify({
-        'initialized': device is not None,
-        'device': str(device) if device else None
-    })
+    """Get device status - devices are opened per computation"""
+    try:
+        # Try to open device to check if it's available
+        test_device = ttnn.open_device(device_id=0)
+        ttnn.close_device(test_device)
+        return jsonify({
+            'available': True,
+            'mode': 'on-demand',
+            'message': 'Device opens for each computation and closes after'
+        })
+    except Exception as e:
+        return jsonify({
+            'available': False,
+            'mode': 'on-demand',
+            'error': str(e)
+        })
 
 @app.route('/api/git/info')
 @login_required
@@ -555,9 +562,7 @@ def reset_device():
         })
 
 if __name__ == '__main__':
-    try:
-        print("🚀 Starting TTNN Operation Calculator...")
-        print("📍 Navigate to http://localhost:5000")
-        app.run(debug=True, host='0.0.0.0', port=5000)
-    finally:
-        cleanup_device()
+    print("🚀 Starting TTNN Operation Calculator...")
+    print("💡 Device opens on-demand per computation (efficient resource usage)")
+    print("📍 Navigate to http://localhost:5000")
+    app.run(debug=True, host='0.0.0.0', port=5000)

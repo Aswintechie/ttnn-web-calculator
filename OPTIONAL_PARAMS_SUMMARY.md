@@ -148,3 +148,5 @@ Potential additions:
 - Parameter tooltips with mathematical formulas
 - Visual parameter sliders for real-time updates
 
+
+
